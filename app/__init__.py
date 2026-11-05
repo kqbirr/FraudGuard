@@ -1,0 +1,1 @@
+"""FraudGuard application package."""
