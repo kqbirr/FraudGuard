@@ -1,0 +1,69 @@
+# Build context for the backend image (docker build .).
+# Goal: app code + requirements + one model artifact. Nothing else.
+
+# --- VCS, tooling, agent metadata ------------------------------------------
+.git
+.gitignore
+.github
+.vscode
+.idea
+.freebuff
+.agents
+skills-lock.json
+
+# --- Secrets and local environment ----------------------------------------
+# The real .env holds the Neon URL; it must never enter a build context or layer.
+.env
+.env.*
+!.env.example
+.neon
+
+# --- Python environment and caches ----------------------------------------
+.venv
+venv
+env
+__pycache__
+*.py[cod]
+*.egg-info
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.coverage
+.coverage.*
+htmlcov
+
+# --- Frontend (separate build context: ./frontend) ------------------------
+frontend
+node_modules
+
+# --- Data, notebooks, logs -------------------------------------------------
+# 144 MB of raw Kaggle data and the EDA notebook are not runtime inputs.
+data
+notebooks
+*.log
+uvicorn_p4.log
+
+# --- Generated outputs -----------------------------------------------------
+# Everything under artifacts/ is excluded, then the one bundle the API loads is
+# allowed back in. The parent directory has to be re-included first, otherwise
+# Docker never walks into it.
+artifacts/*
+!artifacts/models
+artifacts/models/*
+!artifacts/models/fraud_model.joblib
+
+# --- Tests and one-off scripts --------------------------------------------
+# tests/ is not shipped; from scripts/ only the schema step is useful in the image.
+tests
+scripts/*
+!scripts/init_db.py
+
+# --- Files Docker itself does not need in the context ---------------------
+Dockerfile
+.dockerignore
+docker-compose.yml
+docker-compose.sqlite.yml
+README.md
+package.json
+package-lock.json
+neon.ts

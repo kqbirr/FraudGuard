@@ -1,0 +1,75 @@
+# Local development stack: FastAPI backend + Nginx-served React dashboard.
+#
+#   docker compose up --build
+#
+# Compose reads the project's .env for interpolation, so a Neon URL in .env is
+# passed to the backend at run time. It is never copied into an image and never
+# written into frontend assets. With DATABASE_URL unset the API still scores
+# transactions and simply stores no alerts (documented Phase 5 behaviour).
+#
+# For a throwaway SQLite database instead of Neon:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.sqlite.yml up --build
+#
+# Browser-facing URLs:
+#   dashboard  http://localhost:8080
+#   API        http://localhost:8000   (docs at /docs)
+
+name: fraudguard
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: fraudguard-backend:local
+    environment:
+      APP_ENV: ${APP_ENV:-development}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      # Empty means "persistence disabled", not "broken". Set this in .env to use
+      # Neon; the value stays in the process environment, not in a layer.
+      DATABASE_URL: ${DATABASE_URL:-}
+      DB_CONNECT_TIMEOUT: ${DB_CONNECT_TIMEOUT:-10}
+      DB_ECHO: ${DB_ECHO:-false}
+      # The dashboard is served from the frontend container on port 8080, so that
+      # origin (not the Vite dev server) must be allowed by CORS.
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080,http://127.0.0.1:8080}
+      MODEL_PATH: artifacts/models/fraud_model.joblib
+    ports:
+      # Host port 8000 is what the browser calls; 8000 inside the container.
+      - "8000:8000"
+    healthcheck:
+      # 200 only when the model is resident, so a broken artifact blocks startup.
+      test:
+        - CMD
+        - python
+        - -c
+        - import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=4).status == 200 else 1)
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        # Baked into the JavaScript bundle. It must be reachable from the user's
+        # browser: 127.0.0.1:8000 is the published backend port on this machine.
+        # For a remote host, set VITE_API_BASE_URL to that host's public API URL.
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://127.0.0.1:8000}
+    image: fraudguard-frontend:local
+    ports:
+      - "8080:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/"]
+      interval: 15s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped

@@ -1,0 +1,27 @@
+# Optional override: run the stack against a throwaway SQLite file instead of
+# Neon. Nothing in this file is used by the default stack.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.sqlite.yml up --build
+#
+# The database lives in the named volume `sqlite-data`, so alerts survive
+# `docker compose down` but the file is never on the host or in the repository.
+# Remove it (and the data) with:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.sqlite.yml down -v
+
+services:
+  backend:
+    environment:
+      # Four slashes: sqlite:/// is relative, sqlite://// is an absolute path.
+      DATABASE_URL: sqlite:////data/fraudguard.db
+    volumes:
+      - sqlite-data:/data
+    # The base image never creates schema implicitly, so run the same explicit,
+    # idempotent init step used outside Docker, then start the server.
+    command:
+      - sh
+      - -c
+      - python scripts/init_db.py && exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips '127.0.0.1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16'
+
+volumes:
+  sqlite-data:

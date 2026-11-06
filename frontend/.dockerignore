@@ -1,0 +1,15 @@
+# Build context for the frontend image (docker build ./frontend).
+
+node_modules
+dist
+.vite
+npm-debug.log*
+
+# Local overrides can point at a developer's machine; the build arg is the
+# supported way to configure the API URL in an image.
+.env
+.env.*
+!.env.example
+
+Dockerfile
+.dockerignore
