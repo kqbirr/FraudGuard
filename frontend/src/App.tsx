@@ -30,7 +30,7 @@ function degradations(health: HealthResponse): string[] {
   }
   if (!health.database_configured) {
     reasons.push(
-      "no DATABASE_URL is configured, so fraud alerts cannot be stored and GET /flagged answers 503",
+      "the database connection is not configured, so fraud alerts cannot be stored and GET /flagged answers 503",
     );
   }
   return reasons;
