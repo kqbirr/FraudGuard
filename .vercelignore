@@ -1,0 +1,90 @@
+# .vercelignore
+#
+# Vercel's Python functions package the whole repo unless files/directories are
+# excluded. With this repository teaching every phase of FraudGuard (notebooks,
+# 144 MB raw data, EDA artifacts, presentation figures, Docker/Compose configs,
+# the local Python tooling in .venv, .agents, .freebuff and the deployed React
+# frontend), the unstripped upload easily exceeds the Vercel function-size limit.
+#
+# This file focuses the deployment on the **FastAPI backend**. It replaces the
+# greedy all-in upload with the small set of files the API actually needs to start
+# and serve `/predict`/health/alerts.
+#
+# The trained model is intentionally **not** excluded; without it the API starts
+# degraded and `/predict` returns 503.
+#
+# `.gitignore` already keeps most of this *out of Git*. Vercel packages both
+# tracked and untracked files by default, so the same shape has to be expressed
+# here explicitly.
+
+# --- Python runtime tooling (huge, never executed on the function platform) ---
+.venv/
+venv/
+env/
+ENV/
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+*.pyc
+*.pyo
+*.egg-info/
+.eggs/
+
+# --- Version control / agent / platform config ---
+.git/
+.gitignore
+.agents/
+.freebuff/
+.neon/
+.vscode/
+.idea/
+skills-lock.json
+
+# --- Frontend (deployed separately on Vercel; not part of the Python backend) ---
+frontend/
+node_modules/
+frontend/node_modules/
+frontend/.vite/
+frontend/dist/
+
+# --- Data and notebooks (Phase 2 EDA / training inputs; not runtime inputs) ---
+data/
+notebooks/
+*.ipynb
+.ipynb_checkpoints/
+
+# --- Raw and processed data specifically ---
+data/raw/
+data/processed/
+
+# --- Logs ---
+*.log
+logs/
+
+# --- Training / EDA / evaluation / benchmarking assets used to *build* the model,
+# --- not to serve it. One trained artifact is what production needs. ---
+artifacts/eda/
+artifacts/performance/
+artifacts/model_results/
+artifacts/.gitkeep
+
+# --- One-off scripts: build the model or run experiments, not the deployed API ---
+scripts/
+
+# --- Repository-local Docker / Compose / CI config ---
+Dockerfile
+.dockerignore
+docker-compose.yml
+docker-compose.sqlite.yml
+
+# --- Frontend tooling at repo root that is not the Python backend ---
+package-lock.json
+package.json
+neon.ts
+
+# --- Testing / load tooling ---
+tests/

@@ -1,0 +1,29 @@
+# Production dependencies for the FraudGuard FastAPI backend.
+# Installed in the deployed Vercel serverless environment. Does not duplicate
+# the local development environment; see requirements.txt for everything needed
+# to run the full repo (notebooks, EDA, tests, load testing, DB tooling).
+#
+# This file is the runtime subset, verified against the actual imports in app/
+# and the trained model artifact at artifacts/models/fraud_model.joblib.
+
+# --- API framework ---
+fastapi==0.162.0
+uvicorn[standard]==0.54.0
+
+# --- Configuration + schema validation ---
+pydantic==2.14.2
+python-dotenv==1.2.4
+
+# --- Database (SQLAlchemy ORM + psycopg 3 for the pooled Neon connection). ---
+# These are required because the deployed routes access the alert database
+# (/flagged, persist_alert). Excluding them would break the current API contract.
+sqlalchemy==2.1.8
+psycopg[binary]==3.3.8
+
+# --- Scientific stack: needed by the trained XGBoost artifact and by the
+# --- model loader (which passes frames through pandas -> numpy before scoring). ---
+numpy==2.5.4
+pandas==3.1.1
+scikit-learn==1.9.1
+xgboost==3.4.1
+joblib==1.6.0
