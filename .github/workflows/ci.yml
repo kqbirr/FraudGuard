@@ -39,7 +39,11 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt
+          # Install runtime AND development dependencies so the test suite,
+          # scripts and notebooks can all run. requirements-dev.txt includes
+          # everything from requirements.txt plus pytest, httpx, locust, the
+          # matplotlib/seaborn/notebook toolchain, etc.
+          python -m pip install -r requirements-dev.txt
 
       - name: Run the test suite
         run: python -m pytest -q

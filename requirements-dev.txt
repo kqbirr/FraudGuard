@@ -1,0 +1,44 @@
+# Development / CI dependencies for FraudGuard.
+# Installed alongside `requirements.txt` in the CI workflow and in local dev, so
+# the existing test suite, scripts and notebooks can run without changing
+# `requirements.txt`.
+#
+# This file intentionally includes everything that `requirements.txt` already
+# provides plus the tooling below. Do not trim it to only the new extras unless
+# you have re-verified the whole repo still runs.
+#
+# --- API framework (already in requirements.txt; listed here so dev-only installs
+# --- can stand alone if needed) ---
+fastapi==0.162.0
+uvicorn[standard]==0.54.0
+
+# --- Configuration + schema validation ---
+pydantic==2.14.2
+python-dotenv==1.2.4
+
+# --- Database (already in requirements.txt; kept here for dev scripts / tests) ---
+sqlalchemy==2.1.8
+psycopg[binary]==3.3.8
+
+# --- Scientific stack (already in requirements.txt; also needed by scripts) ---
+numpy==2.5.4
+pandas==3.1.1
+scikit-learn==1.9.1
+xgboost==3.4.1
+joblib==1.6.0
+
+# --- Testing ---
+pytest==9.2.0
+
+# --- HTTP-based scripts and load testing ---
+httpx==0.28.1
+locust==2.47.0
+
+# --- Visualization and notebooks (Phase 2 EDA / presentation) ---
+matplotlib==3.11.2
+seaborn==0.13.2
+jupyter==1.1.1
+notebook==7.6.4
+nbconvert==7.17.2
+nbformat==5.11.1
+ipykernel==7.4.0

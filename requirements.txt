@@ -1,34 +1,33 @@
-# FraudGuard dependencies.
-# Versions pinned to the set verified on Windows + CPython 3.13 (all install
-# from prebuilt cp313 wheels; no compiler required).
-
-# --- API service -----------------------------------------------------------
+# FraudGuard runtime dependencies (deployed Vercel backend).
+# These are the pinned dependencies required to start the FastAPI app and run its
+# `/health`, `/predict`, `/flagged` and `/metrics-lite` endpoints, including the
+# trained XGBoost artifact at `artifacts/models/fraud_model.joblib`.
+#
+# Every version below is pinned to the set verified locally on Windows + CPython
+# 3.13 (all install from prebuilt cp313 wheels; no compiler required).
+#
+# Local development dependencies — notebooks, EDA, tests, load testing, DB tooling
+# and the like — live in `requirements-dev.txt`. Vercel installs `requirements.txt`
+# only.
+#
+# --- API framework ---
 fastapi==0.162.0
 uvicorn[standard]==0.54.0
+
+# --- Configuration + schema validation ---
 pydantic==2.14.2
 python-dotenv==1.2.4
 
-# --- Database (later phases; not connected yet) ----------------------------
+# --- Database (SQLAlchemy ORM + psycopg 3 for the pooled Neon connection) ---
+# Required by the deployed routes that access the alert database (/flagged,
+# persist_alert). Excluding these would break the current API contract.
 sqlalchemy==2.1.8
 psycopg[binary]==3.3.8
 
-# --- Data science and modelling --------------------------------------------
+# --- Scientific stack: required by the trained XGBoost artifact and by the model
+# --- loader, which passes frames through pandas -> numpy before scoring.
 numpy==2.5.4
 pandas==3.1.1
 scikit-learn==1.9.1
 xgboost==3.4.1
 joblib==1.6.0
-
-# --- Visualization and notebooks (Phase 2) ---------------------------------
-matplotlib==3.11.2
-seaborn==0.13.2
-jupyter==1.1.1
-notebook==7.6.4
-nbconvert==7.17.2
-nbformat==5.11.1
-ipykernel==7.4.0
-
-# --- Testing and load testing ---------------------------------------------
-pytest==9.2.0
-httpx==0.28.1
-locust==2.47.0
