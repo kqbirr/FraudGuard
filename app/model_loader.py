@@ -27,7 +27,6 @@ from typing import Any, Final, Mapping
 
 import joblib
 import numpy as np
-import pandas as pd
 
 PROJECT_ROOT: Final[Path] = Path(__file__).resolve().parents[1]
 
@@ -52,7 +51,14 @@ class ModelArtifactError(RuntimeError):
 
 @dataclass(frozen=True)
 class LoadedModel:
-    """A trained model plus everything needed to turn scores into decisions."""
+    """A trained model plus everything needed to turn scores into decisions.
+
+    Inputs are deliberately agnostic of ``pandas``: the production API already
+    validates payloads as mappings (``TransactionFeatures``), and the scorer here
+    accepts a single mapping, a sequence of mappings, or a float64 matrix. The
+    original training artifact is a ``joblib`` bundle that still requires
+    ``xgboost`` (for the pickled estimator) and ``numpy`` (for the array math).
+    """
 
     model: Any
     model_name: str
@@ -63,48 +69,118 @@ class LoadedModel:
 
     # -- feature handling --------------------------------------------------- #
 
-    def _feature_matrix(self, frame: pd.DataFrame) -> np.ndarray:
-        """Select and order columns, then convert to a float64 matrix.
+    def _feature_matrix(
+        self, payload: Any
+    ) -> np.ndarray:
+        """Normalize and order input into a float64 matrix.
+
+        Accepted shapes:
+
+        * a single feature mapping (``dict[str, float]`` or anything with a
+          ``keys``/``__getitem__`` interface) — used by the HTTP ``/predict``
+          path;
+        * a sequence of such mappings — used by batch cooks and tests;
+        * a ``(n, 30)`` float matrix — used by model-pipeline tests that pass a
+          NumPy array directly.
 
         Column order is enforced here rather than trusted from the caller: a
         model fed the same numbers in a different order produces confident
         nonsense, so ordering is a correctness requirement, not a nicety.
         """
-        if frame.empty:
-            raise ModelArtifactError("Input frame is empty.")
+        if isinstance(payload, np.ndarray):
+            matrix = payload
+            if matrix.ndim == 1:
+                matrix = matrix.reshape(1, -1)
+            if matrix.ndim != 2:
+                raise ModelArtifactError(
+                    "Numeric input must be 1-D or 2-D."
+                )
+            if matrix.shape[1] != len(self.feature_names):
+                raise ModelArtifactError(
+                    f"Input has {matrix.shape[1]} feature(s), expected "
+                    f"{len(self.feature_names)}."
+                )
+            try:
+                return matrix.astype(np.float64, copy=False)
+            except (TypeError, ValueError) as exc:
+                raise ModelArtifactError(
+                    f"Input contains non-numeric values: {exc}"
+                ) from exc
 
-        missing = [name for name in self.feature_names if name not in frame.columns]
+        # DataFrame duck-type (pandas, polars-like, or test doubles).
+        # We deliberately do not import ``pandas`` at module level: the deployed
+        # runtime no longer ships it. Anything exposing ``columns``, ``loc`` and
+        # ``to_numpy`` is treated as a DataFrame and scored column-wise.
+        if (
+            hasattr(payload, "columns")
+            and callable(getattr(payload, "loc", None))
+            and callable(getattr(payload, "to_numpy", None))
+        ):
+            frame_columns = list(payload.columns)
+            if not frame_columns:
+                raise ModelArtifactError("Input frame has no columns.")
+            missing = [name for name in self.feature_names if name not in frame_columns]
+            if missing:
+                raise ModelArtifactError(
+                    f"Input is missing required feature(s): {missing}. "
+                    f"Expected {len(self.feature_names)} features."
+                )
+            selected = payload.loc[:, list(self.feature_names)]
+            try:
+                return selected.to_numpy(dtype=np.float64, copy=False)
+            except (TypeError, ValueError) as exc:
+                raise ModelArtifactError(
+                    f"Input contains non-numeric values: {exc}"
+                ) from exc
+
+        # Mapping or sequence of mappings.
+        if not isinstance(payload, (list, tuple, set)):
+            payload = [payload]
+
+        if not payload:
+            raise ModelArtifactError("Input is empty.")
+
+        first = payload[0]
+        if not hasattr(first, "keys") or not callable(getattr(first, "__getitem__", None)):
+            raise ModelArtifactError(
+                "Input rows must be feature mappings (e.g. dicts)."
+            )
+
+        missing = [name for name in self.feature_names if name not in first]
         if missing:
             raise ModelArtifactError(
                 f"Input is missing required feature(s): {missing}. "
                 f"Expected {len(self.feature_names)} features."
             )
 
-        selected = frame.loc[:, list(self.feature_names)]
-        try:
-            return selected.to_numpy(dtype=np.float64, copy=False)
-        except (TypeError, ValueError) as exc:
-            raise ModelArtifactError(
-                f"Input contains non-numeric values: {exc}"
-            ) from exc
+        rows: list[list[float]] = []
+        for row in payload:
+            try:
+                rows.append([float(row[name]) for name in self.feature_names])
+            except (TypeError, ValueError) as exc:
+                raise ModelArtifactError(
+                    f"Input contains non-numeric values: {exc}"
+                ) from exc
+
+        return np.array(rows, dtype=np.float64)
 
     # -- scoring ------------------------------------------------------------ #
 
-    def score_frame(self, frame: pd.DataFrame) -> np.ndarray:
+    def score_frame(self, payload: Any) -> np.ndarray:
         """Return fraud scores (higher = more likely fraudulent)."""
-        matrix = self._feature_matrix(frame)
+        matrix = self._feature_matrix(payload)
         if hasattr(self.model, "predict_proba"):
             return np.asarray(self.model.predict_proba(matrix))[:, 1]
         # Unsupervised path: score_samples is negative for anomalous rows.
         return -np.asarray(self.model.score_samples(matrix))
 
-    def predict_frame(self, frame: pd.DataFrame) -> np.ndarray:
+    def predict_frame(self, payload: Any) -> np.ndarray:
         """Return hard decisions using the artifact's saved threshold."""
-        return (self.score_frame(frame) >= self.decision_threshold).astype(int)
+        return (self.score_frame(payload) >= self.decision_threshold).astype(int)
 
     def score_row(self, features: Mapping[str, float]) -> float:
         """Score a single transaction given as a feature mapping."""
-        return float(self.score_frame(pd.DataFrame([features]))[0])
+        return float(self.score_frame(features)[0])
 
     def predict_row(self, features: Mapping[str, float]) -> tuple[int, float]:
         """Return ``(decision, score)`` for a single transaction."""

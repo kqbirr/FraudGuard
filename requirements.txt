@@ -24,10 +24,21 @@ python-dotenv==1.2.4
 sqlalchemy==2.1.8
 psycopg[binary]==3.3.8
 
-# --- Scientific stack: required by the trained XGBoost artifact and by the model
-# --- loader, which passes frames through pandas -> numpy before scoring.
-numpy==2.5.4
-pandas==3.1.1
-scikit-learn==1.9.1
-xgboost==3.4.1
+# --- Inference stack ---
+# The production model loader is intentionally pandas-free: it accepts validated
+# feature mappings (from `TransactionFeatures`) and scores them with numpy + the
+# pickled XGBClassifier. Only these are required at runtime:
+#   * joblib — artifact deserialization
+#   * numpy — float64 matrix math
+#   * xgboost — the pickled XGBClassifier in the artifact
+# scikit-learn is kept only because this xgboost build's pickled artifact may still
+# need its scipy/sklearn runtime; do not remove it until a clean pandas-free venv
+# can load the artifact without it.
 joblib==1.6.0
+numpy==2.5.4
+xgboost==3.4.1
+scikit-learn==1.9.1
+
+# Note: pandas is deliberately absent from the deployed runtime. The app, schema,
+# and model loader no longer import it. It remains in `requirements-dev.txt` for
+# the test suite, EDA scripts and notebooks.
