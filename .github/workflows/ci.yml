@@ -24,7 +24,7 @@ jobs:
       # Belt and braces with tests/conftest.py: never let a developer's .env (which
       # is not in the checkout) or a repository secret wire tests to a real DB.
       DATABASE_URL: ""
-      MODEL_PATH: artifacts/models/fraud_model.joblib
+      MODEL_PATH: artifacts/models/fraud_model.ubj
     steps:
       - name: Check out the repository
         uses: actions/checkout@v5
@@ -120,11 +120,11 @@ jobs:
       - name: Look for the model artifact
         id: artifact
         run: |
-          if [ -f artifacts/models/fraud_model.joblib ]; then
+          if [ -f artifacts/models/fraud_model.ubj ]; then
             echo "present=true" >> "$GITHUB_OUTPUT"
           else
             echo "present=false" >> "$GITHUB_OUTPUT"
-            echo "::notice title=Backend image not built::artifacts/models/fraud_model.joblib is git-ignored, so it is absent from a fresh checkout. Build the backend image locally once the artifact exists."
+            echo "::notice title=Backend image not built::artifacts/models/fraud_model.ubj is git-ignored, so it is absent from a fresh checkout. Build the backend image locally once the artifact exists."
           fi
 
       - name: Build the backend image

@@ -46,7 +46,7 @@ class Settings:
     database_url: str = os.getenv("DATABASE_URL", "")
     database_connect_timeout: int = _env_int("DB_CONNECT_TIMEOUT", 10)
     database_echo: bool = _env_bool("DB_ECHO", False)
-    model_path: str = os.getenv("MODEL_PATH", "artifacts/models/fraud_model.joblib")
+    model_path: str = os.getenv("MODEL_PATH", "artifacts/models/fraud_model.ubj")
     log_level: str = os.getenv("LOG_LEVEL", "INFO")
     #: Browser origins allowed to call this API (CORS). Deliberately an explicit
     #: list, never a wildcard: the dashboard is the only intended browser client,

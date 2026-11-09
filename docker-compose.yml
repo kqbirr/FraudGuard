@@ -34,7 +34,7 @@ services:
       # The dashboard is served from the frontend container on port 8080, so that
       # origin (not the Vite dev server) must be allowed by CORS.
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080,http://127.0.0.1:8080}
-      MODEL_PATH: artifacts/models/fraud_model.joblib
+      MODEL_PATH: artifacts/models/fraud_model.ubj
     ports:
       # Host port 8000 is what the browser calls; 8000 inside the container.
       - "8000:8000"

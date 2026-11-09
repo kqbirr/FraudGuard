@@ -1,15 +1,27 @@
 # FraudGuard runtime dependencies (deployed Vercel backend).
-# These are the pinned dependencies required to start the FastAPI app and run its
-# `/health`, `/predict`, `/flagged` and `/metrics-lite` endpoints, including the
-# trained XGBoost artifact at `artifacts/models/fraud_model.joblib`.
+#
+# These are the pinned dependencies required to start the FastAPI app and serve
+# `/`, `/health`, `/predict`, `/flagged` and `/metrics-lite`, including the model
+# at `artifacts/models/fraud_model.ubj`.
+#
+# The deployed artifact is the trained XGBoost Booster in XGBoost's native UBJ
+# format (exported from the Phase 3 Joblib bundle by
+# `scripts/export_native_model.py`). Reading it needs only `xgboost` and `numpy`:
+# the decision threshold, feature order and training metadata are stored inside
+# the file as Booster attributes. Consequently joblib, scikit-learn and pandas are
+# NOT runtime dependencies, and the deployed image never unpickles anything.
+#
+# `scipy` is not listed because `xgboost` declares it and imports it at import
+# time; pip installs it automatically. Do not add pandas/scikit-learn here unless
+# the loader starts reading the legacy Joblib bundle in production.
 #
 # Every version below is pinned to the set verified locally on Windows + CPython
 # 3.13 (all install from prebuilt cp313 wheels; no compiler required).
 #
 # Local development dependencies — notebooks, EDA, tests, load testing, DB tooling
-# and the like — live in `requirements-dev.txt`. Vercel installs `requirements.txt`
-# only.
-#
+# and the Joblib fallback — live in `requirements-dev.txt`. Vercel installs
+# `requirements.txt` only.
+
 # --- API framework ---
 fastapi==0.162.0
 uvicorn[standard]==0.54.0
@@ -24,21 +36,8 @@ python-dotenv==1.2.4
 sqlalchemy==2.1.8
 psycopg[binary]==3.3.8
 
-# --- Inference stack ---
-# The production model loader is intentionally pandas-free: it accepts validated
-# feature mappings (from `TransactionFeatures`) and scores them with numpy + the
-# pickled XGBClassifier. Only these are required at runtime:
-#   * joblib — artifact deserialization
-#   * numpy — float64 matrix math
-#   * xgboost — the pickled XGBClassifier in the artifact
-# scikit-learn is kept only because this xgboost build's pickled artifact may still
-# need its scipy/sklearn runtime; do not remove it until a clean pandas-free venv
-# can load the artifact without it.
-joblib==1.6.0
+# --- Inference stack (native XGBoost artifact only) ---
+#   * numpy   — float64 feature matrix
+#   * xgboost — Booster.load_model + DMatrix prediction (pulls scipy)
 numpy==2.5.4
 xgboost==3.4.1
-scikit-learn==1.9.1
-
-# Note: pandas is deliberately absent from the deployed runtime. The app, schema,
-# and model loader no longer import it. It remains in `requirements-dev.txt` for
-# the test suite, EDA scripts and notebooks.

@@ -88,3 +88,16 @@ neon.ts
 
 # --- Testing / load tooling ---
 tests/
+
+# --- Model artifacts: only the deployed native file is a runtime input -------
+# The API reads `fraud_model.ubj` with `xgboost.Booster.load_model`. The Phase 3
+# Joblib bundle and the other models compared during training are kept in the
+# repository for reproducibility but are never read by the API, and reading them
+# would require joblib/scikit-learn in the deployed runtime.
+artifacts/models/fraud_model.joblib
+artifacts/models/xgboost.joblib
+artifacts/models/logistic_regression.joblib
+artifacts/models/isolation_forest.joblib
+
+# --- Local verification virtualenvs (hundreds of MB, never deployed) --------
+artifacts/venv*/

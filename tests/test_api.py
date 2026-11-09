@@ -126,7 +126,7 @@ def test_health_does_not_leak_absolute_paths(client: TestClient) -> None:
     assert path is not None
     assert ":" not in path, "absolute Windows paths must not be exposed"
     assert not path.startswith("/")
-    assert path.endswith("fraud_model.joblib")
+    assert path.endswith("fraud_model.ubj")
 
 
 def test_health_degrades_without_model(client: TestClient) -> None:

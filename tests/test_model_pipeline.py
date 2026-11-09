@@ -32,6 +32,8 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 MODELS_DIR = PROJECT_ROOT / "artifacts" / "models"
 RESULTS_DIR = PROJECT_ROOT / "artifacts" / "model_results"
 DEMO_PATH = MODELS_DIR / "demo_transactions.csv"
+NATIVE_MODEL_PATH = MODELS_DIR / "fraud_model.ubj"
+LEGACY_MODEL_PATH = MODELS_DIR / "fraud_model.joblib"
 SPLIT_PATH = MODELS_DIR / "split_indices.npz"
 
 CANONICAL_FEATURES = ["Time", *[f"V{i}" for i in range(1, 29)], "Amount"]
@@ -216,6 +218,42 @@ def test_cache_can_be_cleared() -> None:
     assert first.model_name == second.model_name
 
 
+@requires_artifacts
+@requires_demo
+def test_native_artifact_reproduces_the_joblib_model(
+    model: LoadedModel, demo_frame: pd.DataFrame
+) -> None:
+    """The deployed UBJ must score exactly like the Phase 3 pickled wrapper.
+
+    ``XGBClassifier.predict_proba`` scores only the trees up to
+    ``best_iteration`` once early stopping ran (228 of the 269 saved rounds
+    here), so the loader replays that range on the full booster. Both halves of
+    that contract are easy to break silently: this asserts the swap and the
+    iteration range together.
+    """
+    if not NATIVE_MODEL_PATH.exists():
+        pytest.skip("native artifact missing - run 'python scripts/export_native_model.py'")
+    if not LEGACY_MODEL_PATH.exists():
+        pytest.skip("joblib bundle missing - run 'python scripts/train_models.py'")
+
+    original = joblib.load(LEGACY_MODEL_PATH)
+    estimator = original["model"]
+    threshold = float(original["decision_threshold"])
+    matrix = demo_frame[list(model.feature_names)].to_numpy(dtype=np.float64)
+
+    expected = np.asarray(estimator.predict_proba(matrix))[:, 1]
+    actual = model.score_frame(demo_frame)
+
+    assert np.array_equal(actual, expected), "native scores drifted from predict_proba"
+    assert model.decision_threshold == threshold
+    assert np.array_equal(
+        model.predict_frame(demo_frame), (expected >= threshold).astype(int)
+    )
+    # All 269 trees are kept; only the wrapper's early-stopping range is replayed.
+    assert model.model.num_boosted_rounds() == 269
+    assert model.iteration_range == (0, int(estimator.best_iteration) + 1)
+
+
 def test_missing_artifact_raises_model_artifact_error() -> None:
     with pytest.raises(ModelArtifactError, match="not found"):
         load_model_artifact(Path("artifacts/models/does_not_exist.joblib"))
@@ -223,7 +261,7 @@ def test_missing_artifact_raises_model_artifact_error() -> None:
 
 def test_resolve_model_path_defaults_to_models_dir() -> None:
     resolved = resolve_model_path()
-    assert resolved.name == "fraud_model.joblib"
+    assert resolved.name == "fraud_model.ubj"
     assert resolved.parent.name == "models"
 
 

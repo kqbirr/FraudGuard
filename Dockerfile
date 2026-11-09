@@ -6,7 +6,7 @@
 #
 #   docker build -t fraudguard-backend .
 #
-# The artifact (artifacts/models/fraud_model.joblib) is deliberately git-ignored
+# The artifact (artifacts/models/fraud_model.ubj) is deliberately git-ignored
 # by the project, so it must be present in the working tree when this builds.
 # Only that one artifact is copied; the EDA/benchmark outputs around it are not.
 
@@ -41,7 +41,7 @@ RUN python -m pip install --no-cache-dir -r requirements.txt
 # .dockerignore keeps data/, notebooks/, .venv/, node_modules/ and .env out.
 COPY app ./app
 COPY scripts/init_db.py ./scripts/init_db.py
-COPY artifacts/models/fraud_model.joblib ./artifacts/models/fraud_model.joblib
+COPY artifacts/models/fraud_model.ubj ./artifacts/models/fraud_model.ubj
 
 # Non-root runtime. The app only reads the artifact and serves HTTP; it never
 # writes to the filesystem (alerts go to the database).
