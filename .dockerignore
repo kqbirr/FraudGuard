@@ -50,6 +50,7 @@ uvicorn_p4.log
 artifacts/*
 !artifacts/models
 artifacts/models/*
+!artifacts/models/fraud_model.ubj
 !artifacts/models/fraud_model.joblib
 
 # --- Tests and one-off scripts --------------------------------------------
